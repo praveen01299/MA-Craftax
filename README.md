@@ -48,5 +48,10 @@ To use, following the steps below:
 python baselines/<training-script> --config_file=<config-file-name>
 ```
 
+## Running LLM Multi Agent
+craftax_sym_obs_parser.py allows us to parse the symbolic observations in natural language to be fed to the LLM agent
+run_multiagent_llm.py runs 3 individual agents, able to call LLMs for high level tasks. Execution is done wo LLMs
+
+
 ## License
 Code is licenced under the MIT license provided in the `LICENSE` document.
