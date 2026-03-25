@@ -160,7 +160,7 @@ def call_agent_llm(agent_id: int, agent_obs_text: str, step_num: int) -> dict:
     start_time = time.time()
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5.2",
             messages=[
                 {"role": "system", "content": "You are a game-playing AI."},
                 {"role": "user", "content": prompt}

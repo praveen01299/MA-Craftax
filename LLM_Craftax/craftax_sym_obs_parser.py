@@ -1,3 +1,4 @@
+from craftax.craftax_coop.constants import *
 import jax.numpy as jnp
 import numpy as np
 from enum import Enum
@@ -135,6 +136,13 @@ class CraftaxObservationParser:
         
         # Extract different layers
         blocks_layer = map_grid[:, :, :self.num_blocks]
+        block_indices = np.argmax(blocks_layer, axis=-1) 
+        impassable = np.array(SOLID_BLOCK_MAPPING)[block_indices]     
+        binary_grid = impassable.astype(int)
+        print("Binary impassable grid:\n", binary_grid)
+
+
+
         items_layer = map_grid[:, :, self.num_blocks:self.num_blocks + self.num_items]
         
         mob_start = self.num_blocks + self.num_items
@@ -216,19 +224,33 @@ class CraftaxObservationParser:
             return "here"
         
         # Primary direction (stronger component)
-        if abs(di) > abs(dj):
-            primary = "north" if di < 0 else "south"
-            secondary = "west" if dj < 0 else ("east" if dj > 0 else "")
-        elif abs(dj) > abs(di):
-            primary = "west" if dj < 0 else "east"
-            secondary = "north" if di < 0 else ("south" if di > 0 else "")
+        if abs(di) > abs(dj) or abs(dj) > abs(di):
+            # primary = "north" if di < 0 else "south"
+            if  di < 0:
+                primary = "north"
+            elif di > 0:
+                primary = "south"
+            else:
+                primary = ""
+            if  dj < 0:
+                secondary = "west"
+            elif dj > 0:
+                secondary = "east"
+            else:
+                secondary = ""
+            # secondary = "west" if dj < 0 else ("east" if dj > 0 else "")
+        # elif abs(dj) > abs(di):
+        #     primary = "west" if dj < 0 else "east"
+        #     secondary = "north" if di < 0 else ("south" if di > 0 else "")
+            
+            return f"{primary} {secondary}"
         else:
             # Equal - use both
             vert = "north" if di < 0 else "south"
             horiz = "west" if dj < 0 else "east"
-            return f"{vert}{horiz}"
+            return f"{vert} {horiz}"
         
-        return f"{primary}{secondary}" if secondary else primary
+        # return f"{primary} {secondary}" if secondary else primary
     
     def _parse_teammates(self, teammate_data, teammate_directions_data, current_agent_id):
         """Parse teammate dashboard
@@ -342,7 +364,8 @@ class CraftaxObservationParser:
         # Direction (4)
         direction_onehot = inv_data[idx:idx+4]
         idx += 4
-        directions = ['left', 'right', 'up', 'down']
+        # directions = ['left', 'right', 'up', 'down']
+        directions = ['west', 'east', 'north', 'south']
         facing = directions[np.argmax(direction_onehot)]
         
         # Armour (4)
@@ -413,7 +436,7 @@ class CraftaxObservationParser:
         inv = parsed_obs['inventory']
         map_info = parsed_obs['map']
         
-        text = f"""=== AGENT {agent_id} ({teammate_info['specialization']}) ===
+        stat_text = f"""=== AGENT {agent_id} ({teammate_info['specialization']}) ===
 
 HEALTH & RESOURCES:
 - Health: {teammate_info['health']:.1f}/10
@@ -422,7 +445,7 @@ HEALTH & RESOURCES:
 - Energy: {inv['stats']['energy']:.1f}/9
 - Mana: {inv['stats']['mana']:.1f}/9
 
-LOCATION & STATUS:
+STATUS:
 - Current Level: {inv['state']['current_level']}/8
 - Facing: {inv['state']['facing']}
 - Light Level: {inv['state']['light_level']:.2f}
@@ -445,12 +468,14 @@ TEAMMATES:
             status = "ALIVE" if t['alive'] else "DEAD"
             req_text = f", requesting {t['requesting']}" if t['requesting'] else ""
             dir_text = f", off-screen to {t['direction']}" if t['direction'] else ", nearby on screen"
-            text += f"- Agent {t['id']} ({t['specialization']}): {status}, HP {t['health']:.1f}{req_text}{dir_text}\n"
+            stat_text += f"- Agent {t['id']} ({t['specialization']}): {status}, HP {t['health']:.1f}{req_text}{dir_text}\n"
         
-        text += "\nVISIBLE TILES (sorted by distance):\n"
+
+
+        obs_text = "\nVISIBLE TILES (sorted by distance):\n"
         
         if not map_info['visible_tiles']:
-            text += "- Nothing visible (too dark)\n"
+            obs_text += "- Nothing visible (too dark)\n"
         else:
             # Sort tiles by manhattan distance, then by direction
             sorted_tiles = sorted(map_info['visible_tiles'], 
@@ -460,23 +485,39 @@ TEAMMATES:
             for tile in sorted_tiles:
                 dist = tile['manhattan_distance']
                 rel_i, rel_j = tile['relative']
-                
+                rel_i = rel_i*-1
                 # Show distance header when it changes
                 if dist != current_dist:
                     current_dist = dist
                     if dist == 0:
-                        text += f"\n[HERE - your current tile]:\n"
+                        obs_text += f"\n[HERE - your current tile]:\n"
                     else:
-                        text += f"\n[Distance {dist} tiles away]:\n"
+                        obs_text += f"\n[Distance {dist} tiles away]:\n"
                 
                 # Format position info
-                dir_desc = tile['direction'].upper()
-                pos_desc = f"({rel_i:+d} rows, {rel_j:+d} cols)"  # +d adds sign
+                if tile['direction'] == "here":
+                    dir_desc = "HERE"
+                    pos_desc = f"Facing: {inv['state']['facing']} "
+                else:
+                    dir_componets = tile['direction'].split(" ")
+                    # print(dir_componets)
+                    dir_desc = tile['direction'].replace(" ", "").upper()
+                    pos_desc = "("
+                    if dir_componets[0] != '':
+                        pos_desc += f"{abs(rel_i)} tiles {dir_componets[0]},"
+                    if dir_componets[1] != '':
+                        pos_desc += f" {abs(rel_j)} tiles {dir_componets[1]}"
+                    pos_desc += ")"
+                # else:
+                #     dir_desc = "HERE"
+                #     pos_desc = "(current position)"
+
+                # pos_desc = f"({rel_i:+d} tiles {dir_componets[0]}, {rel_j:+d} tiles {dir_componets[1]})"  # +d adds sign
                 contents = ", ".join(tile['contents'])
                 
-                text += f"  {dir_desc} {pos_desc}: {contents}\n"
+                obs_text += f"  {dir_desc} {pos_desc}: {contents}\n"
         
-        return text
+        return stat_text, obs_text
 
 
 # Example usage:

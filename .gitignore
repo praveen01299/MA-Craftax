@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+LLM_Craftax/outputs/
+LLM_Craftax/results/
+LLM_Craftax/test_img/

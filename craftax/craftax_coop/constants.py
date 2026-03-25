@@ -448,6 +448,9 @@ CLOSE_BLOCKS = jnp.array(
 
 # Can't walk through these
 SOLID_BLOCKS = [
+    BlockType.INVALID.value,
+    BlockType.OUT_OF_BOUNDS.value,
+    BlockType.WATER.value,
     BlockType.STONE.value,
     BlockType.TREE.value,
     BlockType.COAL.value,
