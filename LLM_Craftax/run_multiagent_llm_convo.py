@@ -13,7 +13,7 @@ PROJECT_ROOT = os.path.abspath(
 )
 sys.path.insert(0, PROJECT_ROOT)
 from craftax.craftax_env import make_craftax_env_from_name
-from craftax_sym_obs_parser import CraftaxObservationParser
+from LLM_Craftax.craftax_coop_sym_obs_parser import CraftaxObservationParser
 
 from openai import OpenAI
 

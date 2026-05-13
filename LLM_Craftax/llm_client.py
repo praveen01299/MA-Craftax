@@ -3,8 +3,11 @@ import logging
 import time
 from collections import namedtuple
 from openai import OpenAI
+from ollama import Client
+
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+SERVER_IP = 'http://172.31.69.37:11434'
 
 httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
@@ -32,6 +35,7 @@ class LLMClientWrapper:
             client_config: Configuration object containing client-specific settings.
         """
         # super().__init__(config)
+        self.config = config
         self._initialized = False
         self.client_kwargs = {
             "temperature": config.llm_temperature,
@@ -45,10 +49,14 @@ class LLMClientWrapper:
     def _initialize_client(self):
         """Initialize the OpenAI client if not already initialized."""
         if not self._initialized:
-            if not OPENAI_API_KEY:
-                raise RuntimeError("OPENAI_API_KEY is not set in the environment")
+            if self.config.remote_api:
+                if not OPENAI_API_KEY:
+                    raise RuntimeError("OPENAI_API_KEY is not set in the environment")
 
-            self.client = OpenAI(api_key=OPENAI_API_KEY)
+                self.client = OpenAI(api_key=OPENAI_API_KEY)
+            else:
+                self.client = Client(host=SERVER_IP)
+            self._initialized = True
 
     def execute_with_retries(self, func, *args, **kwargs):
         """Execute a function with retries upon failure.
@@ -86,7 +94,11 @@ class LLMClientWrapper:
         """
         converted_messages = []
         for msg in messages:
-            new_content = [{"type": "text", "text": msg.content}]
+            if self.config.remote_api:
+                # new_content = msg.content
+                new_content = [{"type": "text", "text": msg.content}]
+            else:
+                new_content = msg.content
             # if self.alternate_roles and converted_messages and converted_messages[-1]["role"] == msg.role:
             #     converted_messages[-1]["content"].extend(new_content)
             # else:
@@ -108,12 +120,13 @@ class LLMClientWrapper:
         # print(converted_messages)
         # exit()
 
-        def api_call():
+        def remote_api_call():
             # Create kwargs for the API call
             api_kwargs = {
                 "messages": converted_messages,
                 "model": self.model_id,
                 "max_completion_tokens": self.client_kwargs.get("max_tokens", 1024),
+                # "temperature": self.client_kwargs.get("temperature", 0.7),
             }
 
             # Only include temperature if it's not None
@@ -122,20 +135,47 @@ class LLMClientWrapper:
                 api_kwargs["temperature"] = temperature
 
             return self.client.chat.completions.create(**api_kwargs)
+        
+        def local_api_call():
+            # Create kwargs for the API call
+            api_kwargs = {
+                "messages": converted_messages,
+                "model": self.model_id,
+                # "temperature": self.client_kwargs.get("temperature", 0.7),
+            }
 
-        response = self.execute_with_retries(api_call)
+            # Only include temperature if it's not None
+            return self.client.chat(**api_kwargs)
+        
 
-        return LLMResponse(
-            model_id=self.model_id,
-            completion=response.choices[0].message.content.strip(),
-            stop_reason=response.choices[0].finish_reason,
-            input_tokens=response.usage.prompt_tokens,
-            output_tokens=response.usage.completion_tokens,
-            reasoning=None,
-        )
+        if self.config.remote_api:
+
+            response = self.execute_with_retries(remote_api_call)
+
+            return LLMResponse(
+                model_id=self.model_id,
+                completion=response.choices[0].message.content.strip(),
+                stop_reason=response.choices[0].finish_reason,
+                input_tokens=response.usage.prompt_tokens,
+                output_tokens=response.usage.completion_tokens,
+                reasoning=None,
+            )
+        else:
+            response = self.execute_with_retries(local_api_call)
+
+            return LLMResponse(
+                model_id=self.model_id,
+                completion=response.message.content.strip(),
+                stop_reason=response.done_reason,
+                input_tokens="",
+                output_tokens="",
+                reasoning=response.message.thinking,
+            )
+        # dummy_response = '{"LOCAL OBSERVATION": "observation text", "THOUGHTS": "thought process", "AGENT 0 OBJECTIVE" : "COLLECT_WOOD", "AGENT 1 OBJECTIVE" : "COLLECT_WOOD","AGENT 2 OBJECTIVE" : "COLLECT_WOOD"}'
+        # # '.strip()
         # return LLMResponse(
         #     model_id="",
-        #     completion="NOOP",
+        #     completion=dummy_response,
         #     stop_reason="",
         #     input_tokens="",
         #     output_tokens="",

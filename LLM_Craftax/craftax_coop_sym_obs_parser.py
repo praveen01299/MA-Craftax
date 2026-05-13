@@ -4,68 +4,68 @@ import numpy as np
 from enum import Enum
 
 # Copy the enums from constants.py
-class BlockType(Enum):
-    INVALID = 0
-    OUT_OF_BOUNDS = 1
-    GRASS = 2
-    WATER = 3
-    STONE = 4
-    TREE = 5
-    WOOD = 6
-    PATH = 7
-    COAL = 8
-    IRON = 9
-    DIAMOND = 10
-    CRAFTING_TABLE = 11
-    FURNACE = 12
-    SAND = 13
-    LAVA = 14
-    PLANT = 15
-    RIPE_PLANT = 16
-    WALL = 17
-    DARKNESS = 18
-    WALL_MOSS = 19
-    STALAGMITE = 20
-    SAPPHIRE = 21
-    RUBY = 22
-    CHEST = 23
-    FOUNTAIN = 24
-    FIRE_GRASS = 25
-    ICE_GRASS = 26
-    GRAVEL = 27
-    FIRE_TREE = 28
-    ICE_SHRUB = 29
-    ENCHANTMENT_TABLE_FIRE = 30
-    ENCHANTMENT_TABLE_ICE = 31
-    NECROMANCER = 32
-    GRAVE = 33
-    GRAVE2 = 34
-    GRAVE3 = 35
-    NECROMANCER_VULNERABLE = 36
+# class BlockType(Enum):
+#     INVALID = 0
+#     OUT_OF_BOUNDS = 1
+#     GRASS = 2
+#     WATER = 3
+#     STONE = 4
+#     TREE = 5
+#     WOOD = 6
+#     PATH = 7
+#     COAL = 8
+#     IRON = 9
+#     DIAMOND = 10
+#     CRAFTING_TABLE = 11
+#     FURNACE = 12
+#     SAND = 13
+#     LAVA = 14
+#     PLANT = 15
+#     RIPE_PLANT = 16
+#     WALL = 17
+#     DARKNESS = 18
+#     WALL_MOSS = 19
+#     STALAGMITE = 20
+#     SAPPHIRE = 21
+#     RUBY = 22
+#     CHEST = 23
+#     FOUNTAIN = 24
+#     FIRE_GRASS = 25
+#     ICE_GRASS = 26
+#     GRAVEL = 27
+#     FIRE_TREE = 28
+#     ICE_SHRUB = 29
+#     ENCHANTMENT_TABLE_FIRE = 30
+#     ENCHANTMENT_TABLE_ICE = 31
+#     NECROMANCER = 32
+#     GRAVE = 33
+#     GRAVE2 = 34
+#     GRAVE3 = 35
+#     NECROMANCER_VULNERABLE = 36
 
-class ItemType(Enum):
-    NONE = 0
-    TORCH = 1
-    LADDER_DOWN = 2
-    LADDER_UP = 3
-    LADDER_DOWN_BLOCKED = 4
+# class ItemType(Enum):
+#     NONE = 0
+#     TORCH = 1
+#     LADDER_DOWN = 2
+#     LADDER_UP = 3
+#     LADDER_DOWN_BLOCKED = 4
 
-class Specialization(Enum):
-    UNASSIGNED = 0
-    FORAGER = 1
-    WARRIOR = 2
-    MINER = 3
+# class Specialization(Enum):
+#     UNASSIGNED = 0
+#     FORAGER = 1
+#     WARRIOR = 2
+#     MINER = 3
 
-class Action(Enum):
-    REQUEST_FOOD = 43
-    REQUEST_DRINK = 44
-    REQUEST_WOOD = 45
-    REQUEST_STONE = 46
-    REQUEST_IRON = 47
-    REQUEST_COAL = 48
-    REQUEST_DIAMOND = 49
-    REQUEST_RUBY = 50
-    REQUEST_SAPPHIRE = 51
+# class Action(Enum):
+#     REQUEST_FOOD = 43
+#     REQUEST_DRINK = 44
+#     REQUEST_WOOD = 45
+#     REQUEST_STONE = 46
+#     REQUEST_IRON = 47
+#     REQUEST_COAL = 48
+#     REQUEST_DIAMOND = 49
+#     REQUEST_RUBY = 50
+#     REQUEST_SAPPHIRE = 51
 
 OBS_DIM = (9, 11)
 
@@ -139,7 +139,7 @@ class CraftaxObservationParser:
         block_indices = np.argmax(blocks_layer, axis=-1) 
         impassable = np.array(SOLID_BLOCK_MAPPING)[block_indices]     
         binary_grid = impassable.astype(int)
-        print("Binary impassable grid:\n", binary_grid)
+        # print("Binary impassable grid:\n", binary_grid)
 
 
 
@@ -167,6 +167,7 @@ class CraftaxObservationParser:
         
         return {
             'visible_tiles': visible_tiles,
+            'passable_grid': binary_grid,
             'grid_shape': OBS_DIM,
             'center': (OBS_DIM[0] // 2, OBS_DIM[1] // 2)  # Player is at center
         }

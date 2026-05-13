@@ -1,9 +1,10 @@
 env_name : "Craftax-Coop-Symbolic"
-agent_type : "cot"
+agent_type : "planner"
 seed : 2026
 max_episode_steps : 50
-model_id : "gpt-4o"
-llm_temperature : 1.0
+num_agents : 3
+model_id : "gpt-5.4"
+llm_temperature : 0.3
 llm_max_tokens : 4096
 max_retries : 5
 retry_delay : 2
@@ -11,4 +12,8 @@ parallel_execution : False
 max_text_history : 3
 max_image_history : 1
 max_cot_history : 3
+max_objective_history : 3
 feedback_on_invalid_action : True
+human_render : True
+dialogue_rounds : 3
+remote_api : False

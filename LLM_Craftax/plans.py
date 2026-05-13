@@ -1,0 +1,33 @@
+from astar import astar
+import numpy as np
+
+ACTIONS = {
+    'NOOP': 0, 'WEST': 1, 'EAST': 2, 'NORTH': 3, 'SOUTH': 4, 'DO': 5, 'SLEEP': 6,
+    'PLACE_STONE': 7, 'PLACE_TABLE': 8, 'PLACE_FURNACE': 9, 'PLACE_PLANT': 10,
+    'MAKE_WOOD_PICKAXE': 11, 'MAKE_STONE_PICKAXE': 12, 'MAKE_IRON_PICKAXE': 13,
+    'MAKE_WOOD_SWORD': 14, 'MAKE_STONE_SWORD': 15, 'MAKE_IRON_SWORD': 16,
+    'REST': 17, 'DESCEND': 18, 'ASCEND': 19, 'MAKE_DIAMOND_PICKAXE': 20,
+    'MAKE_DIAMOND_SWORD': 21, 'MAKE_IRON_ARMOUR': 22, 'MAKE_DIAMOND_ARMOUR': 23,
+    'SHOOT_ARROW': 24, 'MAKE_ARROW': 25, 'CAST_SPELL': 26, 'PLACE_TORCH': 28,
+    'DRINK_POTION_RED': 29, 'DRINK_POTION_GREEN': 30, 'DRINK_POTION_BLUE': 31,
+    'DRINK_POTION_PINK': 32, 'DRINK_POTION_CYAN': 33, 'DRINK_POTION_YELLOW': 34,
+    'READ_BOOK': 35, 'ENCHANT_SWORD': 36, 'ENCHANT_ARMOUR': 37, 'MAKE_TORCH': 38,
+    'LEVEL_UP_DEXTERITY': 39, 'LEVEL_UP_STRENGTH': 40, 'LEVEL_UP_INTELLIGENCE': 41,
+    'ENCHANT_BOW': 42, 'REQUEST_FOOD': 43, 'REQUEST_DRINK': 44, 'REQUEST_WOOD': 45,
+    'REQUEST_STONE': 46, 'REQUEST_IRON': 47, 'REQUEST_COAL': 48,
+    'REQUEST_DIAMOND': 49, 'REQUEST_RUBY': 50, 'REQUEST_SAPPHIRE': 51, 'GIVE': 52
+}
+
+
+PLANS = {
+    "NAVIGATE" : navigate(),
+    "EXPLORE" : explore(),
+    "TRADE" : trade(),
+    "COLLECT" : collect(),
+    "CRAFT" : craft(),
+    "SLEEP" : sleep(),
+    # "INITIALIZE_DIALOGUE" : initialize_dialogue(),
+}
+
+def navigate():
+    return "Navigate to a specific location in the game world."

@@ -16,14 +16,17 @@ PROJECT_ROOT = os.path.abspath(
 )
 sys.path.insert(0, PROJECT_ROOT)
 from craftax.craftax_env import make_craftax_env_from_name
-from craftax.craftax_coop.renderer.renderer_pixels import render_craftax_pixels
-from craftax.craftax_coop.constants import *
+from craftax.craftax_ma.renderer.renderer_pixels import render_craftax_pixels
+from craftax.craftax_ma.constants import *
 
-from craftax_sym_obs_parser import CraftaxObservationParser
-from craftax.craftax_coop.craftax_state import StaticEnvParams
-from craftax.craftax_coop.constants import OBS_DIM, MAX_OBS_DIM, BlockType
-from craftax.craftax_coop.craftax_state import EnvState
+from LLM_Craftax.craftax_coop_sym_obs_parser import CraftaxObservationParser
+from craftax_ma_sym_obs_parser import CraftaxMAObservationParser
+from craftax.craftax_ma.craftax_state import StaticEnvParams
+from craftax.craftax_ma.constants import OBS_DIM, MAX_OBS_DIM, BlockType
+from craftax.craftax_ma.craftax_state import EnvState
+from astar import astar
 
+from craftax.craftax_ma.envs.craftax_symbolic_env import CraftaxMASymbolicEnv
 
 # def get_map_view(state: EnvState):
 #     """Returns (player_count, 9, 11) integer array of BlockType values."""
@@ -38,17 +41,21 @@ from craftax.craftax_coop.craftax_state import EnvState
 #         padded, tl_corner, OBS_DIM
 #     )  # shape: (player_count, 9, 11)
 
+plan= [5]#,4,5,1,8,0]
 
 env_name = "Craftax-Coop-Symbolic"
-env = make_craftax_env_from_name(env_name)
-rng = jax.random.PRNGKey(0)
+# env = make_craftax_env_from_name(env_name)
+env = CraftaxMASymbolicEnv(num_agents=2)
+rng = jax.random.PRNGKey(2026)
 static_env_params = StaticEnvParams()
 obs, env_state = env.reset(rng)
-for agent_name in env.agents:
-    print(f"Observation for {agent_name}: {obs[agent_name].shape}")
+print(env.agents)
+# exit()
+# for agent_name in env.agents:
+#     print(f"Observation for {agent_name}: {obs[agent_name].shape}")
 # print(obs_.shape) for agent_name in env.agents:
-print(SOLID_BLOCKS)
-pixel_size = 7
+# print(SOLID_BLOCKS)
+pixel_size = 64
 # print(TEXTURES.keys())
 # print(pixel_size)
 # exit()
@@ -56,11 +63,13 @@ player_specific_textures = load_player_specific_textures(
     TEXTURES[pixel_size],
     static_env_params.player_count
 )
-parser = CraftaxObservationParser(num_agents=len(env.agents))
+parser = CraftaxMAObservationParser(num_agents=2)
+# parser = CraftaxObservationParser(num_agents=2)
 # print(env.agents)
 # print(obs)
 imgs = []
-for i in range(5):
+START_POS = (4, 5)
+for i in range(len(plan)):
     step_imgs = []
     # print(static_env_params.player_count)
     # print(player_specific_textures)
@@ -70,19 +79,34 @@ for i in range(5):
                 static_env_params,
                 player_specific_textures
             ) / 255.0
-    print(pixels.shape)
+    # print(pixels.shape)
     print(f"\n=== STEP {i} ===")
     for id, agent_name in enumerate(env.agents):
+        # print(agent_name)
         img = Image.fromarray((np.array(pixels)[id] * 255).astype(np.uint8))
         step_imgs.append(img)
         # print(f"Observation for {agent_name}: {obs[agent_name]}")
         parsed = parser.parse_observation(obs[agent_name], agent_id=id)
         short_term_obs, long_term_obs = parser.to_text(parsed, id)
+        
+        grid = parsed["map"]["passable_grid"]
+        facing = parsed["inventory"]["state"]["facing"]
+        # print(grid)
+        print(facing)
+        # goal = None
+        # while goal is None:
+        #     goal_x = np.random.randint(0, grid.shape[0])
+        #     goal_y = np.random.randint(0, grid.shape[1])
+        #     if grid[goal_x, goal_y] != 1:
+        #         goal = (goal_x, goal_y)
+        # print(f"Selected random goal: {goal}")
+        # path = astar(grid, START_POS, goal)
+        # print(f"Path from player to goal: {path}")
         # print(f"Parsed observation for {agent_name}: {parsed}")
-        # print(f"Short-term observation for {agent_name}: {short_term_obs}")
+        print(f"Short-term observation for {agent_name}: {short_term_obs}")
         print(f"Long-term observation for {agent_name}: {long_term_obs}")
 
-    actions_dict = {agent_name: 1 for agent_name in env.agents}
+    actions_dict = {agent_name: plan[i] for agent_name in env.agents}
     rng, step_rng = jax.random.split(rng)
 
     obs, env_state, rewards, dones, info = env.step(step_rng, env_state, actions_dict)
@@ -91,9 +115,9 @@ for i in range(5):
         print(f"Reward for {agent_name}: {rewards[agent_name]}")
     imgs.append(step_imgs)
 
-for step_idx, step_imgs in enumerate(imgs):
-    for agent_id, img in enumerate(step_imgs):
-        img.save(f"test_img/step_{step_idx}_agent_{agent_id}.png")
+# for step_idx, step_imgs in enumerate(imgs):
+#     for agent_id, img in enumerate(step_imgs):
+#         img.save(f"test_img/step_{step_idx}_agent_{agent_id}.png")
 
 # parsed = parser.parse_observation(obs[agent_name], agent_id=agent_id)
 

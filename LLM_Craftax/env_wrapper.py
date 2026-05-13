@@ -13,6 +13,16 @@ PROJECT_ROOT = os.path.abspath(
 )
 sys.path.insert(0, PROJECT_ROOT)
 
+DIR_TO_INT = {
+    'west' : 2,
+    'east' : 3,
+    'north' : 4,
+    'south' : 5,
+}
+
+START_POS = (4, 5)
+
+
 class CraftaxLanguageWrapper:
     def __init__(self, env, parser, rng):
         self.env = env
@@ -28,10 +38,15 @@ class CraftaxLanguageWrapper:
         textual_obs = {}
         for id, agent_name in enumerate(self.env.agents):
             parsed = self.parser.parse_observation(obs[agent_name], agent_id=id)
+            grid = parsed["map"].get("passable_grid", None)
+            facing = parsed["inventory"]["state"]["facing"]
+            facing_id = DIR_TO_INT[facing]
+            grid[START_POS[0]][START_POS[1]] = facing_id
             parsed = self.parser.to_text(parsed, id)
             parsed_dict = {
                 "long_term_context": parsed[1],
                 "short_term_context": parsed[0],
+                "passable_grid": grid  # Include passable grid if available
             }
             textual_obs[agent_name] = parsed_dict
         
@@ -43,11 +58,15 @@ class CraftaxLanguageWrapper:
         textual_obs = {}
         for id, agent_name in enumerate(self.env.agents):
             parsed = self.parser.parse_observation(obs[agent_name], agent_id=id)
-            
+            grid = parsed["map"].get("passable_grid", None)
+            facing = parsed["inventory"]["state"]["facing"]
+            facing_id = DIR_TO_INT[facing]
+            grid[START_POS[0]][START_POS[1]] = facing_id
             parsed = self.parser.to_text(parsed, id)
             parsed_dict = {
                 "long_term_context": parsed[1],
                 "short_term_context": parsed[0],
+                "passable_grid": grid  # Include passable grid if available
             }
             textual_obs[agent_name] = parsed_dict
 
