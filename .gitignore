@@ -2,4 +2,10 @@ __pycache__/
 *.py[cod]
 LLM_Craftax/outputs/
 LLM_Craftax/results/
+LLM_Craftax/runs/
+
 LLM_Craftax/test_img/
+LLM_Craftax/joint_policy_test_gemma4.py
+LLM_Craftax/joint_policy_test_openai.py
+LLM_Craftax/actions_plan_example.py
+LLM_Craftax/joint_policy_test_copy.py

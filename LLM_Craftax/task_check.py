@@ -279,6 +279,8 @@ def check_collect_food(obs: str, prev_obs: Optional[str] = None) -> bool:
     return parse_observation(obs)['food'] >= 9.0
 
 
+def check_explore(obs: str, prev_obs: Optional[str] = None) -> bool:
+    return True
 # ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
@@ -309,6 +311,7 @@ TASK_CHECKERS = {
     'MAKE_TORCH':         check_make_torch,
     'PLACE_TORCH':        check_place_torch,
     'COLLECT_FOOD':       check_collect_food,
+    'EXPLORE':            check_explore,
 }
 
 

@@ -666,6 +666,71 @@ class HistoryandPlansPromptBuilderv2:
         return messages
 
 
+class TaskExecutionPromptBuilder:
+    def __init__(
+        self,
+        config
+    ):
+        self.max_history = config.max_text_history
+        self.plans_system_prompt = None
+        self._events = deque(maxlen=self.max_history * 2)  # Stores observations and actions
+        self._last_short_term_obs = None  # To store the latest short-term observation
+
+    def update_instruction_prompt(self, instruction: str):
+        """Set the system-level instruction prompt."""
+        self.proposal_system_prompt = instruction
+
+    def update_observation(self, obs: dict, step : int):
+        """Add an observation to the prompt history, which can include text, an image, or both."""
+        long_term_context = obs.get("long_term_context", "")
+        self._last_short_term_obs = obs.get("short_term_context", "")
+        text = long_term_context
+        self.current_step = step
+        # Add observation to events
+        self._events.append(
+            {
+                "type": "observation",
+                "text": text,
+                "step" : step
+            }
+        )
+
+    def reset(self):
+        """Clear the event history."""
+        self._events.clear()
+
+    def get_exec_prompt(self, icl_episodes=False) -> List[Message]:
+        """Generate a list of Message objects representing the prompt.
+
+        Returns:
+            List[Message]: Messages constructed from the event history.
+        """
+        messages = []
+        if self.proposal_system_prompt and not icl_episodes:
+            messages.append(Message(role="system", content=self.proposal_system_prompt))
+        events = copy.deepcopy(self._events)
+        
+        for idx, event in enumerate(events):
+            if event["type"] == "observation":
+                message_parts = []
+
+                if event["step"] == self.current_step:
+                    if self._last_short_term_obs:
+                        message_parts.append("Current Status:")
+                        message_parts.append(self._last_short_term_obs)
+                    message_parts.append("Current Observation:")
+
+                    message_parts.append(event["text"])
+                    
+                    content = "\n".join(message_parts)
+                    message = Message(role="user", content=content)
+                    messages.append(message)
+            else:
+                continue
+
+        return messages
+
+
 class DialogueHistoryPromptBuilder:
     def __init__(
         self,

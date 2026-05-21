@@ -74,6 +74,17 @@ In a moment I will present a history of observations from the game and reasoning
     return prompt
 
 
+def get_task_selection_system_prompt(agent_str: str) -> str:
+    
+    prompt = f"""You are an agent playing a cooperative Minecraft-like game. You are Agent {agent_str}.
+
+In a moment I will present a history of observations from the game as well you current goal for the game. Your are to extract information from your observation to execute the current goal."
+
+"""
+    return prompt
+
+
+
 
 def get_ma_system_prompt(agent_id: int) -> str:
     

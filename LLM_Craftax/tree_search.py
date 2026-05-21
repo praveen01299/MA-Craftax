@@ -26,6 +26,10 @@ from langchain_core.prompt_values import ChatPromptValue
 from langchain_core.runnables import RunnableConfig
 from typing import Literal
 from langgraph.graph import END, StateGraph, START
+import ast
+
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 class Node:
@@ -221,7 +225,7 @@ class MonteCarloTreeSearch:
             [
                 (
                     "system",
-                    "You are a good planner. Please plan the task based on the existing information. Your response must include a plan.",
+                    "Your are an expert an writing coed for action selection. Please write Python function based on the existing information. Your response must include runnable Python function.",
                 ),
                 ("user", "{input}"),
                 MessagesPlaceholder(variable_name="messages", optional=True),
@@ -255,6 +259,7 @@ class MonteCarloTreeSearch:
             user_input=inputs['input'][0],
             candidate_content=inputs['candidate'][-1].content
         )
+        print(prompt_text)
 
         response = self.llm.invoke(prompt_text)
         reflections, score, solved, message = self.parse_response(response)
@@ -278,11 +283,11 @@ class MonteCarloTreeSearch:
         return reflections, score, solved
 
     def parse_response(self, response):
-        # Enhanced parser supporting Dis_Score, Task_Score, and Message
+        # Enhanced parser supporting Progress_Score, Task_Score, and Message
         try:
             reasoning_part = response.content.split("Reasoning:")[1].split("Solved:")[0].replace("[", "").replace("]", "").strip()
 
-            dis_score_part = response.content.split("Dis_Score:")[1].split("Message:")[0].strip()
+            dis_score_part = response.content.split("Progress_Score:")[1].split("Message:")[0].strip()
             dis_score_part = re.findall(r'\d+\.\d+|\d+', dis_score_part)[0]
 
             task_score_part = response.content.split("Task_Score:")[1].split("Message:")[0].strip()
@@ -403,9 +408,39 @@ class MonteCarloTreeSearch:
             return lats_plan_list, new_dialogue_history
 
 
+
+def insert_method_into_class(source: str, class_name: str, new_method: str) -> str:
+    """
+    Inserts a method string into a named class in the source code.
+    new_method should be a properly indented function def (as if top-level).
+    """
+    tree = ast.parse(source)
+
+    # Find the target class
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == class_name:
+            # Get the line number of the last statement in the class
+            last_line = max(n.end_lineno for n in node.body)
+            break
+    else:
+        raise ValueError(f"Class '{class_name}' not found")
+
+    # Re-indent the method to be inside a class (4 spaces)
+    indented = "\n".join("    " + line for line in new_method.strip().splitlines())
+
+    # Insert after the last line of the class
+    lines = source.splitlines()
+    lines.insert(last_line, "\n" + indented)
+    return "\n".join(lines)
+
 if __name__ == "__main__":
     # Usage
-    from mcts_test_prompts import get_alice_prompt, get_bob_prompt
+    from mcts_prompts_code import get_alice_prompt, get_bob_prompt, get_alice_obs, get_bob_obs
+    import shutil
+
+    shutil.copy("./joint_policy_template.py", "./joint_policy_test_gemma4.py")
+
+
 
     mcts = MonteCarloTreeSearch(
         # Input API
@@ -413,9 +448,22 @@ if __name__ == "__main__":
         api_key="ollama",
         base_url="http://172.31.69.37:11434/v1"
     )
-    question = get_alice_prompt()  # Get Alice's prompt for the task
-    reflection_prompt = get_bob_prompt()  # Get Bob's prompt for reflection and planning
+    question = get_alice_prompt("craft a wooden pickaxe and wooden sword", get_alice_obs())  # Get Alice's prompt for the task
+    reflection_prompt = get_bob_prompt(get_bob_obs())  # Get Bob's prompt for reflection and planning
     lats_plan_list, message_list = mcts.run(question, reflection_prompt)
     lats_plan = lats_plan_list[-1]
-    print(message_list)
-    print("Final LATS Plan:", lats_plan)
+
+    source = open("./joint_policy_test_gemma4.py").read()
+
+    try:
+        match = re.search(r"Action plan\s*:\s*```python\s*(.*?)```", lats_plan, re.DOTALL)
+    except Exception as e:
+        print(f"Error during regex search: {e}")
+        match = None
+
+    if match:
+        function_str = match.group(1).strip()
+    # print(match)
+    
+    result = insert_method_into_class(source, "CraftaxJointPolicy", function_str)
+    open("./joint_policy_test_gemma4.py", "w").write(result)

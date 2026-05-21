@@ -46,6 +46,7 @@ plan= [5]#,4,5,1,8,0]
 env_name = "Craftax-Coop-Symbolic"
 # env = make_craftax_env_from_name(env_name)
 env = CraftaxMASymbolicEnv(num_agents=2)
+print(env.agents)
 rng = jax.random.PRNGKey(2026)
 static_env_params = StaticEnvParams()
 obs, env_state = env.reset(rng)
@@ -110,7 +111,7 @@ for i in range(len(plan)):
     rng, step_rng = jax.random.split(rng)
 
     obs, env_state, rewards, dones, info = env.step(step_rng, env_state, actions_dict)
-    # print(info)
+    print(rewards)
     for agent_name in env.agents:
         print(f"Reward for {agent_name}: {rewards[agent_name]}")
     imgs.append(step_imgs)

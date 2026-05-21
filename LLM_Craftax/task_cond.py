@@ -241,7 +241,8 @@ def cond_collect_food(obs: str) -> bool:
     # Food is collected by killing a passive mob (cow); same target as EAT_COW
     return _tiles_contain(obs, 'cow')
 
-
+def cond_explore(obs: str) -> bool:
+    return True
 # ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
@@ -272,6 +273,7 @@ TASK_CONDITIONS = {
     'MAKE_TORCH':         cond_make_torch,
     'PLACE_TORCH':        cond_place_torch,
     'COLLECT_FOOD':       cond_collect_food,
+    'EXPLORE' :           cond_explore,
 }
 
 

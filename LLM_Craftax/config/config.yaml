@@ -17,3 +17,6 @@ feedback_on_invalid_action : True
 human_render : True
 dialogue_rounds : 3
 remote_api : False
+run_name : null
+run_path : null
+objective : null

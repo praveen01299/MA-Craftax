@@ -1,5 +1,4 @@
 import copy
-from pyexpat.errors import messages
 import re
 from llm_client import LLMResponse
 from astar import astar
@@ -154,6 +153,226 @@ You always have to output one of the above actions at a time and no other text. 
     
     def reset(self):
         self.prompt_builder.reset()
+
+
+
+class ExecAgent(BaseAgent):
+    """An agent that generates actions based on observations without complex reasoning."""
+
+    def __init__(self, agent_name, client, prompt_builder):
+        super().__init__(agent_name, client, prompt_builder)
+        self.default_action = 'NOOP'
+        self.current_plan = None
+        self.current_objective = None
+        self.failed_candidates = []  # To track invalid actions suggested by the LLM
+
+    def generate_plan(self, grid, action=None, coord=None):
+
+        def select_random_goal(grid):
+            new_goal_coord = None
+            while new_goal_coord is None:
+                goal_x = np.random.randint(0, grid.shape[0])
+                goal_y = np.random.randint(0, grid.shape[1])
+                if grid[goal_x, goal_y] == 0:
+                    new_goal_coord = (goal_x, goal_y)
+            return new_goal_coord
+
+        if coord is None:
+            goal_coord = select_random_goal(grid)
+        else:
+            goal_coord = (START_POS[0] + coord[0], START_POS[1] + coord[1])
+
+        if action is None:
+            action_list = []
+        else:
+            action_list = [ACTIONS[action]]
+        # print(grid)
+        # print(goal_coord)
+        facing = grid[START_POS[0]][START_POS[1]]
+        # print(facing)
+        grid[START_POS[0]][START_POS[1]] = 0
+        if grid[goal_coord[0], goal_coord[1]] == 1:
+            neighbor_coords = [(goal_coord[0] + dx, goal_coord[1] + dy) for dx, dy in _MOVES]
+            valid_neighbors = [c for c in neighbor_coords if 0 <= c[0] < grid.shape[0] and 0 <= c[1] < grid.shape[1] and grid[c[0], c[1]] == 0]
+            if valid_neighbors:
+                new_goal_coord = min(valid_neighbors, key=lambda c: abs(c[0] - START_POS[0]) + abs(c[1] - START_POS[1]))
+            
+                goal_dir = (goal_coord[0] - new_goal_coord[0], goal_coord[1] - new_goal_coord[1])
+                correct_facing = DIR_TO_FACING[goal_dir]
+                goal_coord = new_goal_coord
+            else:
+                print("No valid neighboring cells to navigate to!, selecting random goal")
+                new_goal_coord = select_random_goal(grid)
+                # goal_dir = (goal_coord[0] - new_goal_coord[0], goal_coord[1] - new_goal_coord[1])
+                # correct_facing = DIR_TO_FACING[goal_dir] 
+                correct_facing = None       
+                goal_coord = new_goal_coord
+        else:
+            correct_facing = None
+        if goal_coord is not None:
+            navigate_plan = astar(np.array(grid), START_POS, goal_coord)
+            # print(navigate_plan)
+            if navigate_plan is not None:
+                if len(navigate_plan) > 0:
+                    facing = navigate_plan[-1] + 1
+                if correct_facing is not None and facing != correct_facing:
+                    navigate_plan.append(correct_facing - 1)
+            return navigate_plan + action_list if navigate_plan is not None else action_list 
+        else:
+            return action_list
+
+    def execute_plan(self, plan):
+        if self.plan_index < len(plan) - 1:
+            action = plan[self.plan_index]
+            # if self.check_action_validity(action):
+            self.plan_index += 1
+            return action
+        else:
+            action = plan[self.plan_index]
+            self.current_plan = None
+            self.plan_index = 0
+            # else:
+            #     self.failed_candidates.append(action)
+            #     return self.default_action
+        return action
+
+
+    def act(self, obs, step):
+        """Generate the next action based on the observation and previous action.
+
+        Args:
+            obs (dict): The current observation in the environment.
+            prev_action (str, optional): The previous action taken.
+
+        Returns:
+            str: The selected action from the LLM response.
+        """
+        # print(prev_action)
+        if self.current_plan is not None:
+            next_action = self.execute_plan(self.current_plan)
+            return next_action, None
+        else:
+            # if prev_action:
+            #     self.prompt_builder.update_action(prev_action)
+
+            self.prompt_builder.update_observation(obs, step)
+
+            plan_messages = self.prompt_builder.get_exec_prompt()
+
+            if self.objective == "EXPLORE":
+                self.current_plan = self.generate_plan(obs["passable_grid"])
+                plan_reasoning = None
+                action = None
+            else:    
+
+                if self.objective.startswith("PLACE"):
+                    plan_proposal_instructions = f"""Your current objective is to: {self.current_objective}. Given the current observation, 
+            Give the relative postion of an empty cell to navigate to, use positive integers to indicate south and east and negative intergers to indicate north and west. 
+            Give your answer in the following format:
+            THOUGHTS :  <thoughts>
+            NAVIGATE TO: <(north/south, east/west)>""".strip()
+
+                    action = self.objective
+
+                elif self.objective.startswith("COLLECT"):
+                    plan_proposal_instructions = f"""Your current objective is to: {self.current_objective}. Given the current observation, 
+            Give the relative postion of the resource to navigate to, use positive integers to indicate south and east and negative intergers to indicate north and west. 
+            Give your answer in the following format:
+            THOUGHTS :  <thoughts>
+            NAVIGATE TO: <(north/south, east/west)>""".strip()
+                    
+                    action = "DO"
+
+                elif self.objective.startswith("MAKE"):    
+
+                    plan_proposal_instructions = f"""Your current objective is to: {self.current_objective}. Given the current observation, 
+            Give the relative postion of the crafting table to navigate to, use positive integers to indicate south and east and negative intergers to indicate north and west. 
+            Give your answer in the following format:
+            THOUGHTS :  <thoughts>
+            NAVIGATE TO: <(north/south, east/west)>""".strip()
+                    
+                    action = self.objective
+                
+                elif self.objective.startswith("EAT"):    
+
+                    plan_proposal_instructions = f"""Your current objective is to: {self.current_objective}. Given the current observation, 
+            Give the relative postion of the location of the cow to navigate to, use positive integers to indicate south and east and negative intergers to indicate north and west. 
+            After that, give by a valid action. 
+            Give your answer in the following format:
+            THOUGHTS :  <thoughts>
+            NAVIGATE TO: <(north/south, east/west)>""".strip()
+                    
+                    action = "DO"
+                
+                elif self.objective.startswith("DEFEAT"):
+
+                    plan_proposal_instructions = f"""Your current objective is to: {self.current_objective}. Given the current observation, 
+            Give the relative postion of the enemy to navigate to, use positive integers to indicate south and east and negative intergers to indicate north and west. 
+            After that, give by a valid action. 
+            Give your answer in the following format:
+            THOUGHTS :  <thoughts>
+            NAVIGATE TO: <(north/south, east/west)>""".strip()
+                    
+                    action = "DO"
+
+                else:
+                    print(f"Unknown objective type for objective {self.current_objective}, defaulting to random navigation")
+                    self.current_plan = self.generate_plan(obs["passable_grid"])
+                    plan_reasoning = None
+                    action = None
+                    
+                if action is not None:
+                    plan_messages[-1].content += "\n\n" + plan_proposal_instructions
+
+                    cot_plan_reasoning = self.client.generate(plan_messages)
+                    coord, plan_reasoning = self._extract_plan(cot_plan_reasoning)
+
+                    self.current_plan = self.generate_plan(obs["passable_grid"], coord, action)
+
+
+            next_action = self.execute_plan(self.current_plan)
+
+            planner_output = {
+                "objective": self.current_objective,
+                "plan": self.current_plan,
+                "reasoning": plan_reasoning,
+            }
+
+            return next_action, planner_output
+        # return final_answer, 0
+    
+
+    def _extract_plan(self, completion: str):
+        """Extract NAVIGATE coordinates and ACTION from an LLM plan completion.
+
+        Expects the format produced by ``achievemnet_proposal_instructions``:
+            NAVIGATE TO (<x>, <y>), ACTION: <ACTION_NAME>
+
+        Args:
+            completion: Raw LLM completion string.
+
+        Returns:
+            tuple[tuple[int, int] | None, str | None]:
+                ``(coords, action)`` where *coords* is ``(x, y)`` and *action*
+                is a key from ``ACTIONS``, or ``None`` for either field when the
+                corresponding part cannot be parsed.
+        """
+        coords = None
+
+        nav_match = re.search(r"NAVIGATE\s+TO:\s+\(?\s*(-?\d+)\s*,\s*(-?\d+)\s*\)?", completion.completion, re.IGNORECASE)
+        if nav_match:
+            coords = (int(nav_match.group(1)), int(nav_match.group(2)))
+        else:
+            coords = (0, 0)
+
+
+        final_answer = copy.deepcopy(completion)
+        self.prompt_builder.update_reasoning(completion.completion, type="plan")
+        final_answer = final_answer._replace(reasoning=final_answer.completion)
+        # final_answer = final_answer._replace(completion=filter_letters(final_answer.completion).split("OBJECTIVE:")[-1].strip())
+
+        return coords, final_answer
+
 
 
 class CoTAgent(BaseAgent):
@@ -528,8 +747,21 @@ class PlannerAgentMA(BaseAgent):
             #     return self.default_action
         return action
     
-    def generate_plan(self, grid, coord, action):
-        goal_coord = (START_POS[0] + coord[0], START_POS[1] + coord[1])
+    def generate_plan(self, grid, action, coord=None):
+
+        def select_random_goal(grid):
+            new_goal_coord = None
+            while new_goal_coord is None:
+                goal_x = np.random.randint(0, grid.shape[0])
+                goal_y = np.random.randint(0, grid.shape[1])
+                if grid[goal_x, goal_y] == 0:
+                    new_goal_coord = (goal_x, goal_y)
+            return new_goal_coord
+
+        if coord is None:
+            goal_coord = select_random_goal(grid)
+        else:
+            goal_coord = (START_POS[0] + coord[0], START_POS[1] + coord[1])
         # print(grid)
         # print(goal_coord)
         facing = grid[START_POS[0]][START_POS[1]]
@@ -546,12 +778,7 @@ class PlannerAgentMA(BaseAgent):
                 goal_coord = new_goal_coord
             else:
                 print("No valid neighboring cells to navigate to!, selecting random goal")
-                new_goal_coord = None
-                while new_goal_coord is None:
-                    goal_x = np.random.randint(0, grid.shape[0])
-                    goal_y = np.random.randint(0, grid.shape[1])
-                    if grid[goal_x, goal_y] == 0:
-                        new_goal_coord = (goal_x, goal_y)
+                new_goal_coord = select_random_goal(grid)
                 # goal_dir = (goal_coord[0] - new_goal_coord[0], goal_coord[1] - new_goal_coord[1])
                 # correct_facing = DIR_TO_FACING[goal_dir] 
                 correct_facing = None       

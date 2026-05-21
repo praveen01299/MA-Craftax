@@ -9,8 +9,8 @@ api_kwargs = {
 }
 
 # Connect to the remote server
-# client = Client(host='http://172.31.69.37:11434')
-client = Client(host='http://172.31.95.149:11434')
+client = Client(host='http://172.31.69.37:11434')
+# client = Client(host='http://172.31.95.149:11434')
 
 response = client.chat(**api_kwargs)
 print(response.message.content)
